@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecureBank — Loan Kiosk</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0b1f3a;
+      --navy2:  #152d52;
+      --gold:   #c9a227;
+      --gold2:  #f0c040;
+      --white:  #ffffff;
+      --muted:  #8a9ab5;
+      --green:  #27ae60;
+      --orange: #e67e22;
+      --red:    #e74c3c;
+      --radius: 16px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--navy);
+      color: var(--white);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 40px;
+      background: var(--navy2);
+      border-bottom: 2px solid var(--gold);
+      flex-shrink: 0;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 40px; height: 40px; background: var(--gold); border-radius: 10px; display: grid; place-items: center; font-size: 20px; }
+    .logo-text { font-size: 21px; font-weight: 700; }
+    .logo-text span { color: var(--gold); }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    #clock { font-size: 14px; color: var(--muted); }
+    .backend-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .status-dot.online { background: var(--green); }
+
+    /* ── MAIN ── */
+    .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 40px; }
+
+    /* ── SCREENS ── */
+    .screen { display: none; width: 100%; max-width: 920px; animation: fadeIn .3s ease; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── STEP INDICATOR ── */
+    .step-indicator { display: flex; align-items: center; width: 100%; max-width: 920px; margin-bottom: 26px; }
+    .step-dot { width: 34px; height: 34px; border-radius: 50%; background: var(--navy2); border: 2px solid var(--muted); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--muted); z-index: 1; transition: all .3s; }
+    .step-dot.done   { background: var(--gold); border-color: var(--gold); color: var(--navy); }
+    .step-dot.active { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 4px rgba(201,162,39,.2); }
+    .step-line { flex: 1; height: 2px; background: var(--muted); transition: background .3s; }
+    .step-line.done { background: var(--gold); }
+
+    /* ── WELCOME ── */
+    .welcome-hero { text-align: center; margin-bottom: 44px; }
+    .welcome-hero h1 { font-size: 40px; font-weight: 800; line-height: 1.2; }
+    .welcome-hero h1 span { color: var(--gold); }
+    .welcome-hero p { font-size: 17px; color: var(--muted); margin-top: 10px; }
+    .welcome-actions { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: var(--navy); border: none; padding: 18px 40px; font-size: 17px; font-weight: 700;
+      border-radius: var(--radius); cursor: pointer; transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 4px 22px rgba(201,162,39,.35);
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(201,162,39,.5); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-secondary { background: transparent; color: var(--white); border: 2px solid var(--gold); padding: 16px 36px; font-size: 17px; font-weight: 600; border-radius: var(--radius); cursor: pointer; transition: background .15s, transform .15s; }
+    .btn-secondary:hover { background: rgba(201,162,39,.12); transform: translateY(-3px); }
+    .btn-nav { background: var(--navy2); color: var(--white); border: 1px solid var(--muted); padding: 12px 26px; font-size: 14px; font-weight: 600; border-radius: 10px; cursor: pointer; transition: background .15s; }
+    .btn-nav:hover { background: rgba(255,255,255,.08); }
+
+    /* ── LOAN GRID ── */
+    .section-title { text-align: center; margin-bottom: 28px; }
+    .section-title h2 { font-size: 30px; font-weight: 700; }
+    .section-title p { color: var(--muted); font-size: 15px; margin-top: 8px; }
+    .loan-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; width: 100%; }
+    .loan-card { background: var(--navy2); border: 2px solid transparent; border-radius: var(--radius); padding: 26px 20px; cursor: pointer; text-align: center; transition: border-color .2s, transform .2s, background .2s; }
+    .loan-card:hover, .loan-card.selected { border-color: var(--gold); background: rgba(201,162,39,.08); transform: translateY(-4px); }
+    .loan-card .icon { font-size: 36px; margin-bottom: 10px; }
+    .loan-card h3 { font-size: 17px; font-weight: 700; }
+    .loan-card p { font-size: 12px; color: var(--muted); margin-top: 5px; }
+    .loan-card .rate { font-size: 12px; color: var(--gold); font-weight: 600; margin-top: 7px; }
+
+    /* ── FORM ── */
+    .form-card { background: var(--navy2); border-radius: var(--radius); padding: 34px 38px; width: 100%; }
+    .step-header { margin-bottom: 26px; }
+    .step-tag { display: inline-block; background: rgba(201,162,39,.15); color: var(--gold); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 8px; }
+    .step-header h2 { font-size: 24px; font-weight: 700; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .form-group { display: flex; flex-direction: column; gap: 7px; margin-bottom: 18px; }
+    .form-group label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .form-group input, .form-group select {
+      background: var(--navy); border: 1.5px solid rgba(255,255,255,.12);
+      color: var(--white); padding: 12px 15px; border-radius: 10px; font-size: 15px; outline: none;
+      transition: border-color .2s, box-shadow .3s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--gold); }
+    .form-group input::placeholder { color: var(--muted); }
+    .form-group select option { background: var(--navy2); }
+
+    /* ── BUTTON OPTION GROUPS (replace dropdowns) ── */
+    .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .opt-btn {
+      background: var(--navy);
+      border: 1.5px solid rgba(255,255,255,.15);
+      color: var(--white);
+      padding: 9px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: border-color .15s, background .15s, color .15s, transform .1s;
+    }
+    .opt-btn:hover { border-color: var(--gold); background: rgba(201,162,39,.1); transform: translateY(-1px); }
+    .opt-btn.selected {
+      background: rgba(201,162,39,.22);
+      border-color: var(--gold);
+      color: var(--gold);
+      font-weight: 700;
+    }
+    .other-text {
+      display: none;
+      margin-top: 10px;
+    }
+    .other-text.show { display: block; }
+
+    /* Voice-fill highlight */
+    @keyframes voiceFilled {
+      0%   { box-shadow: 0 0 0 0 rgba(201,162,39,0); border-color: var(--gold); }
+      40%  { box-shadow: 0 0 0 8px rgba(201,162,39,.25); }
+      100% { box-shadow: 0 0 0 0 rgba(201,162,39,0); border-color: var(--gold); }
+    }
+    .voice-filled { animation: voiceFilled 1s ease forwards !important; }
+
+    .range-wrap input[type=range] { width: 100%; accent-color: var(--gold); padding: 0; border: none; background: transparent; }
+    .range-val { text-align: right; font-size: 20px; font-weight: 700; color: var(--gold); margin-top: 4px; }
+
+    .emi-preview { background: var(--navy); border-radius: 10px; padding: 15px 18px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .emi-preview span { color: var(--muted); font-size: 14px; }
+
+    .form-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; }
+
+    /* ── VOICE HINTS ── */
+    .voice-hint { background: rgba(201,162,39,.07); border: 1px solid rgba(201,162,39,.2); border-radius: 10px; padding: 10px 16px; margin-bottom: 18px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .voice-hint strong { color: var(--gold); }
+
+    /* ── REVIEW ── */
+    .review-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+    .review-list li { display: flex; justify-content: space-between; align-items: center; padding: 13px 17px; background: var(--navy); border-radius: 10px; }
+    .review-list .label { color: var(--muted); font-size: 13px; }
+    .review-list .value { font-weight: 600; font-size: 14px; }
+
+    /* ── CONFIRMATION ── */
+    .confirm-box { text-align: center; padding: 20px; width: 100%; max-width: 640px; }
+    .confirm-icon { font-size: 64px; margin-bottom: 16px; }
+    .confirm-box h2 { font-size: 30px; font-weight: 800; }
+    .confirm-box .sub { color: var(--muted); font-size: 15px; margin-top: 10px; max-width: 480px; margin-left: auto; margin-right: auto; }
+    .ref-num { display: inline-block; margin-top: 18px; background: rgba(201,162,39,.1); border: 1px solid var(--gold); color: var(--gold); padding: 9px 26px; border-radius: 30px; font-size: 16px; font-weight: 700; letter-spacing: 2px; }
+
+    .score-bar-wrap { margin: 22px 0; }
+    .score-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .score-bar { height: 10px; background: rgba(255,255,255,.1); border-radius: 5px; overflow: hidden; }
+    .score-fill { height: 100%; border-radius: 5px; transition: width 1.2s ease; }
+    .score-fill.green  { background: linear-gradient(90deg, var(--green), #2ecc71); }
+    .score-fill.orange { background: linear-gradient(90deg, var(--orange), #f39c12); }
+    .score-fill.red    { background: linear-gradient(90deg, var(--red), #c0392b); }
+
+    .decision-badge { display: inline-block; padding: 7px 22px; border-radius: 30px; font-size: 14px; font-weight: 700; letter-spacing: 1px; margin-top: 14px; }
+    .decision-badge.approved    { background: rgba(39,174,96,.15); color: var(--green); border: 1px solid var(--green); }
+    .decision-badge.conditional { background: rgba(230,126,34,.15); color: var(--orange); border: 1px solid var(--orange); }
+    .decision-badge.rejected    { background: rgba(231,76,60,.15);  color: var(--red);    border: 1px solid var(--red); }
+
+    .loan-terms { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 22px 0; }
+    .term-box { background: var(--navy2); border-radius: 12px; padding: 16px; }
+    .term-box .tl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .term-box .tv { font-size: 18px; font-weight: 700; color: var(--gold); }
+
+    .flags-list { text-align: left; background: rgba(231,76,60,.08); border: 1px solid rgba(231,76,60,.2); border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
+    .flags-list p { font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+    .flags-list ul { list-style: none; }
+    .flags-list li { font-size: 13px; color: #e88; padding: 3px 0; }
+    .flags-list li::before { content: '⚠ '; }
+
+    /* ── LOADING OVERLAY ── */
+    #loading-overlay {
+      position: fixed; inset: 0; background: rgba(11,31,58,.85);
+      display: none; place-items: center; z-index: 500; flex-direction: column; gap: 16px;
+    }
+    #loading-overlay.show { display: flex; }
+    .spinner { width: 50px; height: 50px; border: 4px solid rgba(201,162,39,.2); border-top-color: var(--gold); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--gold); font-size: 16px; font-weight: 600; }
+
+    /* ── FLOATING MIC ── */
+    #mic-btn {
+      position: fixed; bottom: 30px; right: 30px; width: 66px; height: 66px;
+      border-radius: 50%; background: linear-gradient(135deg, var(--gold), var(--gold2));
+      border: none; cursor: pointer; display: grid; place-items: center; font-size: 26px;
+      box-shadow: 0 5px 24px rgba(201,162,39,.45); z-index: 100; transition: transform .2s, box-shadow .2s;
+    }
+    #mic-btn:hover { transform: scale(1.08); }
+    #mic-btn.listening { animation: micPulse 1.2s infinite; background: linear-gradient(135deg, var(--red), #c0392b); box-shadow: 0 5px 24px rgba(231,76,60,.5); }
+    @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(231,76,60,.5); } 50% { box-shadow: 0 0 0 16px rgba(231,76,60,0); } }
+
+    /* ── VOICE BAR ── */
+    #voice-bar { position: fixed; bottom: 108px; right: 22px; background: var(--navy2); border: 1px solid var(--gold); border-radius: 12px; padding: 10px 16px; font-size: 13px; max-width: 270px; display: none; z-index: 99; box-shadow: 0 4px 18px rgba(0,0,0,.4); }
+    #voice-bar.show { display: block; }
+    #voice-bar .vb-label { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+    #voice-bar .vb-text { color: var(--gold); font-weight: 600; word-break: break-word; }
+    #voice-bar .vb-filled { color: var(--green); font-size: 11px; margin-top: 5px; }
+
+    /* ── AI CHAT ── */
+    #chat-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 370px; background: var(--navy2); border-left: 2px solid var(--gold); display: flex; flex-direction: column; z-index: 200; transform: translateX(100%); transition: transform .35s ease; }
+    #chat-panel.open { transform: translateX(0); }
+    .chat-header { padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; justify-content: space-between; }
+    .chat-header h3 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: blink 1.5s infinite; }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+    #close-chat { background: transparent; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
+    .msg { max-width: 88%; padding: 11px 15px; border-radius: 14px; font-size: 13px; line-height: 1.55; }
+    .msg.bot  { background: var(--navy); border-bottom-left-radius: 4px; align-self: flex-start; }
+    .msg.user { background: rgba(201,162,39,.18); border: 1px solid rgba(201,162,39,.3); border-bottom-right-radius: 4px; align-self: flex-end; text-align: right; }
+    .msg.typing { color: var(--muted); font-style: italic; }
+    .chat-input-area { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.1); display: flex; gap: 10px; }
+    #chat-input { flex: 1; background: var(--navy); border: 1.5px solid rgba(255,255,255,.12); color: var(--white); border-radius: 10px; padding: 9px 13px; font-size: 13px; outline: none; }
+    #chat-input:focus { border-color: var(--gold); }
+    #chat-send { background: var(--gold); border: none; color: var(--navy); border-radius: 10px; padding: 9px 14px; font-size: 18px; cursor: pointer; font-weight: 700; }
+
+    /* ── TOAST ── */
+    #toast { position: fixed; top: 22px; left: 50%; transform: translateX(-50%); background: var(--navy2); border: 1px solid var(--gold); color: var(--white); padding: 10px 26px; border-radius: 30px; font-size: 14px; z-index: 999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+    #toast.show { opacity: 1; }
+
+    @media (max-width: 680px) {
+      .loan-grid { grid-template-columns: 1fr 1fr; }
+      .form-row  { grid-template-columns: 1fr; }
+      #chat-panel { width: 100%; }
+      .topbar { padding: 12px 18px; }
+      .main { padding: 18px; }
+      .loan-terms { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🏦</div>
+    <div class="logo-text">Secure<span>Bank</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="backend-status">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-label">Checking…</span>
+    </div>
+    <div id="clock"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- STEP INDICATOR -->
+  <div class="step-indicator" id="step-indicator" style="display:none;">
+    <div class="step-dot active" id="sd1">1</div>
+    <div class="step-line" id="sl1"></div>
+    <div class="step-dot" id="sd2">2</div>
+    <div class="step-line" id="sl2"></div>
+    <div class="step-dot" id="sd3">3</div>
+    <div class="step-line" id="sl3"></div>
+    <div class="step-dot" id="sd4">4</div>
+  </div>
+
+  <!-- ① WELCOME -->
+  <div class="screen active" id="screen-welcome">
+    <div class="welcome-hero">
+      <h1>Welcome to<br /><span>SecureBank</span> Loan Kiosk</h1>
+      <p>Apply for a loan in minutes — click buttons or speak your answers.</p>
+    </div>
+    <div class="welcome-actions">
+      <button class="btn-primary" onclick="goTo('screen-type')">🚀 Start Loan Application</button>
+      <button class="btn-secondary" onclick="openChat()">💬 Talk to AI Assistant</button>
+    </div>
+    <p style="margin-top:34px; color:var(--muted); font-size:13px;">
+      💡 Press <strong style="color:var(--gold)">🎤</strong> and say <em>"personal loan"</em>, <em>"home loan"</em>, or <em>"start"</em>
+    </p>
+  </div>
+
+  <!-- ② LOAN TYPE -->
+  <div class="screen" id="screen-type">
+    <div class="section-title">
+      <h2>What type of loan are you looking for?</h2>
+      <p>Click a card or say the loan type — e.g. <em style="color:var(--gold)">"I want a home loan"</em></p>
+    </div>
+    <div class="loan-grid">
+      <div class="loan-card" onclick="selectLoan('Personal Loan')" data-loan="personal loan">
+        <div class="icon">👤</div><h3>Personal Loan</h3>
+        <p>For any personal expense or emergency</p><div class="rate">From 10.5% p.a.</div>
+      </div>
+      <div class="loan-card" onclick="selectLoan('Home Loan')" data-loan="home loan">
+        <div class="icon">🏠</div><h3>Home Loan</h3>
+        <p>Buy, build or renovate your dream home</p><div class="rate">From 8.4% p.a.</div>
+      </div>
+      <div class="loan-card" onclick="selectLoan('Car Loan')" data-loan="car loan">
+        <div class="icon">🚗</div><h3>Car Loan</h3>
+        <p>New or used vehicle financing</p><div class="rate">From 9.0% p.a.</div>
+      </div>
+      <div class="loan-card" onclick="selectLoan('Business Loan')" data-loan="business loan">
+        <div class="icon">💼</div><h3>Business Loan</h3>
+        <p>Grow your business with working capital</p><div class="rate">From 11.0% p.a.</div>
+      </div>
+      <div class="loan-card" onclick="selectLoan('Education Loan')" data-loan="education loan">
+        <div class="icon">🎓</div><h3>Education Loan</h3>
+        <p>Finance your higher education</p><div class="rate">From 7.5% p.a.</div>
+      </div>
+      <div class="loan-card" onclick="selectLoan('Gold Loan')" data-loan="gold loan">
+        <div class="icon">🪙</div><h3>Gold Loan</h3>
+        <p>Unlock the value of your gold assets</p><div class="rate">From 9.5% p.a.</div>
+      </div>
+    </div>
+    <div style="margin-top:26px;">
+      <button class="btn-nav" onclick="goTo('screen-welcome')">← Back</button>
+    </div>
+  </div>
+
+  <!-- ③ PERSONAL INFO -->
+  <div class="screen" id="screen-info">
+    <div class="form-card">
+      <div class="step-header">
+        <div class="step-tag">Step 1 of 3</div>
+        <h2>Your Personal Details</h2>
+      </div>
+      <div class="voice-hint">
+        🎤 <strong>Voice examples:</strong> "My name is Aastha Kataria" &nbsp;·&nbsp; "Phone 9876543210" &nbsp;·&nbsp; "Email aastha@gmail.com" &nbsp;·&nbsp; "PAN ABCDE1234F"
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>First Name</label><input type="text" id="f-fname" placeholder="e.g. Aastha" /></div>
+        <div class="form-group"><label>Last Name</label><input type="text" id="f-lname" placeholder="e.g. Kataria" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Mobile Number</label><input type="tel" id="f-phone" placeholder="+91 98765 43210" /></div>
+        <div class="form-group"><label>Email Address</label><input type="email" id="f-email" placeholder="you@example.com" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Date of Birth</label><input type="date" id="f-dob" /></div>
+        <div class="form-group"><label>PAN Number</label><input type="text" id="f-pan" placeholder="ABCDE1234F" maxlength="10" style="text-transform:uppercase;" /></div>
+      </div>
+      <div class="form-nav">
+        <button class="btn-nav" onclick="goTo('screen-type')">← Back</button>
+        <button class="btn-primary" onclick="goStep('screen-amount',2)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ LOAN AMOUNT -->
+  <div class="screen" id="screen-amount">
+    <div class="form-card">
+      <div class="step-header">
+        <div class="step-tag">Step 2 of 3</div>
+        <h2>Loan Amount &amp; Tenure</h2>
+      </div>
+      <div class="voice-hint">
+        🎤 <strong>Voice examples:</strong> "I want 5 lakh" &nbsp;·&nbsp; "Loan amount 10 lakh" &nbsp;·&nbsp; "Tenure 3 years" &nbsp;·&nbsp; "60 months" &nbsp;·&nbsp; "Purpose is home renovation"
+      </div>
+      <div class="form-group">
+        <label>Loan Amount</label>
+        <input type="range" id="f-amount" min="50000" max="5000000" step="50000" value="500000" oninput="updateAmount()" />
+        <div class="range-val" id="amount-val">₹5,00,000</div>
+      </div>
+      <div class="form-group">
+        <label>Tenure (months)</label>
+        <input type="range" id="f-tenure" min="6" max="360" step="6" value="60" oninput="updateTenure()" />
+        <div class="range-val" id="tenure-val">60 months (5 yrs)</div>
+      </div>
+      <div class="form-group">
+        <label>Purpose of Loan</label>
+        <div class="btn-group" data-field="f-purpose">
+          <button type="button" class="opt-btn" data-val="Home Renovation"   onclick="selectOpt(this)">🏠 Home Renovation</button>
+          <button type="button" class="opt-btn" data-val="Medical Emergency"  onclick="selectOpt(this)">🏥 Medical</button>
+          <button type="button" class="opt-btn" data-val="Education"          onclick="selectOpt(this)">🎓 Education</button>
+          <button type="button" class="opt-btn" data-val="Travel"             onclick="selectOpt(this)">✈️ Travel</button>
+          <button type="button" class="opt-btn" data-val="Debt Consolidation" onclick="selectOpt(this)">🔄 Debt Consolidation</button>
+          <button type="button" class="opt-btn" data-val="Business Expansion" onclick="selectOpt(this)">💼 Business Expansion</button>
+          <button type="button" class="opt-btn" data-val="Other"              onclick="selectOpt(this)">✏️ Other…</button>
+        </div>
+        <input type="hidden" id="f-purpose" value="" />
+        <input type="text"   id="f-purpose-other" class="other-text" placeholder="Describe your purpose here…" />
+      </div>
+      <div class="emi-preview">
+        <span>Estimated Monthly EMI</span>
+        <span id="emi-val" style="font-size:20px; font-weight:700; color:var(--gold);">₹10,607/mo</span>
+      </div>
+      <div class="form-nav">
+        <button class="btn-nav" onclick="goStep('screen-info',1)">← Back</button>
+        <button class="btn-primary" onclick="goStep('screen-employment',3)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ EMPLOYMENT -->
+  <div class="screen" id="screen-employment">
+    <div class="form-card">
+      <div class="step-header">
+        <div class="step-tag">Step 3 of 3</div>
+        <h2>Employment &amp; Income</h2>
+      </div>
+      <div class="voice-hint">
+        🎤 <strong>Voice examples:</strong> "I am salaried" &nbsp;·&nbsp; "My income is 75000" &nbsp;·&nbsp; "I work at Infosys" &nbsp;·&nbsp; "5 years experience" &nbsp;·&nbsp; "Credit score 750"
+      </div>
+      <div class="form-group">
+        <label>Employment Type</label>
+        <div class="btn-group" data-field="f-emptype">
+          <button type="button" class="opt-btn" data-val="Salaried"      onclick="selectOpt(this)">💼 Salaried</button>
+          <button type="button" class="opt-btn" data-val="Self-Employed"  onclick="selectOpt(this)">🔧 Self-Employed</button>
+          <button type="button" class="opt-btn" data-val="Business Owner" onclick="selectOpt(this)">🏢 Business Owner</button>
+          <button type="button" class="opt-btn" data-val="Freelancer"     onclick="selectOpt(this)">💻 Freelancer</button>
+          <button type="button" class="opt-btn" data-val="Retired"        onclick="selectOpt(this)">🌅 Retired</button>
+        </div>
+        <input type="hidden" id="f-emptype" value="" />
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Monthly Income (₹)</label><input type="number" id="f-income" placeholder="e.g. 75000" /></div>
+        <div class="form-group"><label>Employer / Company Name</label><input type="text" id="f-employer" placeholder="e.g. Infosys Ltd." /></div>
+      </div>
+      <div class="form-group">
+        <label>Years at Current Job</label>
+        <div class="btn-group" data-field="f-experience">
+          <button type="button" class="opt-btn" data-val="Less than 1 year" onclick="selectOpt(this)">Under 1 yr</button>
+          <button type="button" class="opt-btn" data-val="1–2 years"        onclick="selectOpt(this)">1–2 yrs</button>
+          <button type="button" class="opt-btn" data-val="2–5 years"        onclick="selectOpt(this)">2–5 yrs</button>
+          <button type="button" class="opt-btn" data-val="5–10 years"       onclick="selectOpt(this)">5–10 yrs</button>
+          <button type="button" class="opt-btn" data-val="10+ years"        onclick="selectOpt(this)">10+ yrs</button>
+        </div>
+        <input type="hidden" id="f-experience" value="" />
+      </div>
+      <div class="form-group">
+        <label>Credit Score (approximate)</label>
+        <div class="btn-group" data-field="f-credit">
+          <button type="button" class="opt-btn" data-val="750+ (Excellent)" onclick="selectOpt(this)">⭐ 750+ Excellent</button>
+          <button type="button" class="opt-btn" data-val="700–749 (Good)"   onclick="selectOpt(this)">👍 700–749 Good</button>
+          <button type="button" class="opt-btn" data-val="650–699 (Fair)"   onclick="selectOpt(this)">🆗 650–699 Fair</button>
+          <button type="button" class="opt-btn" data-val="Below 650 (Poor)" onclick="selectOpt(this)">⚠️ Below 650</button>
+          <button type="button" class="opt-btn" data-val="Don't know"       onclick="selectOpt(this)">🤷 Don't Know</button>
+        </div>
+        <input type="hidden" id="f-credit" value="" />
+      </div>
+      <div class="form-nav">
+        <button class="btn-nav" onclick="goStep('screen-amount',2)">← Back</button>
+        <button class="btn-primary" onclick="goReview()">Review Application →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ REVIEW -->
+  <div class="screen" id="screen-review">
+    <div class="form-card">
+      <div class="step-header">
+        <div class="step-tag">Review</div>
+        <h2>Review Your Application</h2>
+      </div>
+      <ul class="review-list" id="review-list"></ul>
+      <div class="form-nav" style="margin-top:24px;">
+        <button class="btn-nav" onclick="goStep('screen-employment',3)">← Edit</button>
+        <button class="btn-primary" id="submit-btn" onclick="submitApp()">✅ Submit Application</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑦ CONFIRMATION -->
+  <div class="screen" id="screen-confirm">
+    <div class="confirm-box" id="confirm-content"></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Analysing your application…</div>
+</div>
+
+<!-- MIC BUTTON -->
+<button id="mic-btn" onclick="toggleMic()" title="Click to speak">🎤</button>
+
+<!-- VOICE STATUS BAR -->
+<div id="voice-bar">
+  <div class="vb-label">Heard</div>
+  <div class="vb-text" id="voice-text">Listening…</div>
+  <div class="vb-filled" id="voice-filled"></div>
+</div>
+
+<!-- AI CHAT PANEL -->
+<div id="chat-panel">
+  <div class="chat-header">
+    <h3><span class="ai-dot"></span> AI Loan Assistant</h3>
+    <button id="close-chat" onclick="closeChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="msg bot">👋 Hi! I'm your SecureBank AI assistant. Ask me anything — loan eligibility, documents needed, interest rates, or just say what you want to do and I'll guide you!</div>
+  </div>
+  <div class="chat-input-area">
+    <input id="chat-input" placeholder="Ask me anything…" onkeydown="if(event.key==='Enter') sendChat()" />
+    <button id="chat-send" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════
+const GROQ_API_KEY = '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';
+const GROQ_MODEL   = 'llama-3.1-8b-instant';
+const GROQ_URL     = 'https://api.groq.com/openai/v1/chat/completions';
+const BACKEND_URL  = 'http://localhost:3001';
+
+// ═══════════════════════════════════════════════════════
+//  VOICE PRE-PROCESSORS
+// ═══════════════════════════════════════════════════════
+
+/** Convert spoken email to typed email.
+ *  "aastha at the rate gmail dot com" → "aastha@gmail.com"
+ *  "aastha at gmail dot com"           → "aastha@gmail.com"
+ *  Works even if user says just "gmail" (auto-appends .com) */
+function extractEmail(raw) {
+  // Try literal match first
+  const direct = raw.match(/[\w.+_-]+@[\w.-]+\.[a-z]{2,}/i);
+  if (direct) return direct[0].toLowerCase();
+
+  let t = raw
+    // strip spoken prefixes
+    .replace(/(?:my\s+)?(?:email|e.mail)\s+(?:address\s+)?(?:is\s+)?/gi, '')
+    // convert "at the rate [of]" → @
+    .replace(/\bat\s+the\s+rate\s+of\b/gi, '@')
+    .replace(/\bat\s+the\s+rate\b/gi, '@')
+    // convert "dot" between word-chars → "."
+    .replace(/([a-z0-9_+.-])\s+dot\s+([a-z0-9])/gi, '$1.$2')
+    // convert "underscore" → "_"
+    .replace(/\bunderscore\b/gi, '_')
+    // convert "dash" / "hyphen" → "-"
+    .replace(/\b(?:dash|hyphen)\b/gi, '-');
+
+  // Now convert "at" sandwiched between identifier chars → @
+  t = t.replace(/([a-z0-9_.+%-]+)\s+at\s+([a-z0-9.-]+)/gi, '$1@$2');
+
+  // Collapse all remaining whitespace
+  t = t.replace(/\s+/g, '');
+
+  // Try again
+  const m = t.match(/[\w.+_-]+@[\w.-]+\.[a-z]{2,}/i);
+  if (m) return m[0].toLowerCase();
+
+  // Auto-complete popular providers: "aastha@gmail" → "aastha@gmail.com"
+  const short = t.match(/([\w.+_-]+)@(gmail|yahoo|hotmail|outlook|icloud|rediff|protonmail|zoho)/i);
+  if (short) return `${short[1].toLowerCase()}@${short[2].toLowerCase()}.com`;
+
+  return null;
+}
+
+/** Parse spoken/typed date into ISO yyyy-mm-dd.
+ *  Handles every common spoken format:
+ *  "15th march 1995" · "march 15 1995" · "15th of march 1995"
+ *  "15/3/1995" · "15-3-1995" · "1995-03-15" · "march 1995 15" */
+function extractDOB(text) {
+  const months = {
+    january:1,february:2,march:3,april:4,may:5,june:6,
+    july:7,august:8,september:9,october:10,november:11,december:12,
+    jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
+  };
+
+  function tryParse(t) {
+    // Remove "of" between ordinal and month: "15th of march" → "15th march"
+    t = t.replace(/(\d{1,2})(?:st|nd|rd|th)?\s+of\s+([a-z])/gi, '$1 $2');
+
+    // Pattern 1: "15th march 1995" / "15 march 1995"
+    let m = t.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\s+(\d{4})/i);
+    if (m) { const mo = months[m[2].toLowerCase()]; if (mo) return `${m[3]}-${String(mo).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`; }
+
+    // Pattern 2: "march 15 1995" / "march 15th 1995"
+    m = t.match(/([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+(\d{4})/i);
+    if (m) { const mo = months[m[1].toLowerCase()]; if (mo) return `${m[3]}-${String(mo).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`; }
+
+    // Pattern 3: "15/3/1995" · "15-3-1995" · "15.3.1995"
+    m = t.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+    if (m) return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+
+    // Pattern 4: already ISO "1995-03-15"
+    m = t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+    if (m) return m[0];
+
+    // Pattern 5: year first "1995 march 15"
+    m = t.match(/(\d{4})\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?/i);
+    if (m) { const mo = months[m[2].toLowerCase()]; if (mo) return `${m[1]}-${String(mo).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`; }
+
+    return null;
+  }
+
+  // Try 1: strip spoken prefixes then parse
+  const stripped = text
+    .replace(/(?:my\s+)?(?:date\s+of\s+birth|d\.?\s*o\.?\s*b\.?|birth\s+date|born\s+on|born|birthday\s+is|birthday)\s*(?:is\s+)?/gi, '')
+    .trim();
+  const fromStripped = tryParse(stripped);
+  if (fromStripped) return fromStripped;
+
+  // Try 2: parse the raw text (prefix strip might have eaten part of the date)
+  return tryParse(text);
+}
+
+/** Convert spoken number words (and mixed) to an integer.
+ *  "five lakh twenty thousand" → 520000
+ *  "ten lakh"  → 1000000
+ *  "seventy five thousand" → 75000 */
+function wordToNum(text) {
+  const ones = {
+    zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,
+    ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,
+    seventeen:17,eighteen:18,nineteen:19,
+  };
+  const tens = { twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90 };
+
+  let result = 0, curr = 0;
+  const words = text.toLowerCase().replace(/\band\b/g,'').split(/[\s,\-]+/);
+  for (const w of words) {
+    const n = parseInt(w, 10);
+    if (!isNaN(n))                  curr += n;
+    else if (ones[w] !== undefined) curr += ones[w];
+    else if (tens[w] !== undefined) curr += tens[w];
+    else if (w === 'hundred')       curr  = (curr === 0 ? 1 : curr) * 100;
+    else if (w === 'thousand')      { result += curr * 1000;    curr = 0; }
+    else if (w === 'lakh' || w === 'lac' || w === 'lakhs') { result += curr * 100000;  curr = 0; }
+    else if (w === 'crore')         { result += curr * 10000000; curr = 0; }
+  }
+  result += curr;
+  return result > 0 ? result : null;
+}
+
+const SYSTEM_PROMPT = `You are an AI assistant for SecureBank's loan kiosk in India.
+Help customers with loan applications, eligibility, interest rates, and documentation.
+Be concise, friendly, and professional. Use simple language. Answer in under 80 words unless detailed info is needed.
+Available loans: Personal Loan (from 10.5%), Home Loan (from 8.4%), Car Loan (from 9.0%), Business Loan (from 11.0%), Education Loan (from 7.5%), Gold Loan (from 9.5%).
+For eligibility: minimum age 21, income ₹25,000+/month, credit score 650+.
+Required documents: Aadhaar, PAN, income proof (salary slip / ITR), bank statements (3 months).`;
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let selectedLoan = '';
+let recognition  = null;
+let isListening  = false;
+
+// ═══════════════════════════════════════════════════════
+//  CLOCK
+// ═══════════════════════════════════════════════════════
+(function tick() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+  setTimeout(tick, 1000);
+})();
+
+// ═══════════════════════════════════════════════════════
+//  BACKEND HEALTH CHECK
+// ═══════════════════════════════════════════════════════
+async function checkBackend() {
+  try {
+    const res = await fetch(BACKEND_URL + '/api/dashboard', { signal: AbortSignal.timeout(2500) });
+    if (res.ok) {
+      document.getElementById('status-dot').classList.add('online');
+      document.getElementById('status-label').textContent = 'Backend Online';
+    } else { throw new Error(); }
+  } catch {
+    document.getElementById('status-label').textContent = 'Backend Offline';
+    console.warn('Backend not reachable — start with: cd backend && npm install && node server.js');
+  }
+}
+checkBackend();
+
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  const hasSteps = ['screen-info','screen-amount','screen-employment','screen-review'].includes(screenId);
+  document.getElementById('step-indicator').style.display = hasSteps ? 'flex' : 'none';
+  window.scrollTo(0,0);
+}
+
+function goStep(screenId, step) { updateStepDots(step); goTo(screenId); }
+
+function updateStepDots(active) {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('sd'+i).className = 'step-dot' + (i < active ? ' done' : i === active ? ' active' : '');
+    const l = document.getElementById('sl'+i);
+    if (l) l.className = 'step-line' + (i < active ? ' done' : '');
+  }
+}
+
+function selectLoan(name) {
+  selectedLoan = name;
+  document.querySelectorAll('.loan-card').forEach(c => c.classList.remove('selected'));
+  document.querySelector(`[data-loan="${name.toLowerCase()}"]`)?.classList.add('selected');
+  toast(`✓ ${name} selected`);
+  setTimeout(() => { updateStepDots(1); goTo('screen-info'); }, 550);
+}
+
+function goReview() {
+  updateStepDots(4);
+  const items = [
+    ['Loan Type',        selectedLoan || '—'],
+    ['Full Name',        [g('f-fname'), g('f-lname')].filter(Boolean).join(' ') || '—'],
+    ['Mobile',           g('f-phone') || '—'],
+    ['Email',            g('f-email') || '—'],
+    ['PAN',              g('f-pan')?.toUpperCase() || '—'],
+    ['Loan Amount',      document.getElementById('amount-val').textContent],
+    ['Tenure',           document.getElementById('tenure-val').textContent],
+    ['Purpose',          g('f-purpose') || '—'],
+    ['Employment',       g('f-emptype') || '—'],
+    ['Monthly Income',   g('f-income') ? '₹' + Number(g('f-income')).toLocaleString('en-IN') : '—'],
+    ['Credit Score',     g('f-credit') || '—'],
+    ['Est. EMI',         document.getElementById('emi-val').textContent],
+  ];
+  document.getElementById('review-list').innerHTML =
+    items.map(([l,v]) => `<li><span class="label">${l}</span><span class="value">${v}</span></li>`).join('');
+  goTo('screen-review');
+}
+
+async function submitApp() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  document.getElementById('loading-overlay').classList.add('show');
+
+  const amount = parseInt(document.getElementById('f-amount').value);
+  const tenure = parseInt(document.getElementById('f-tenure').value);
+  const rate   = 10.5;
+  const r      = rate / 100 / 12;
+  const emi    = Math.round(amount * r * Math.pow(1+r,tenure) / (Math.pow(1+r,tenure)-1));
+
+  const payload = {
+    loanType:    selectedLoan,
+    firstName:   g('f-fname'),
+    lastName:    g('f-lname'),
+    phone:       g('f-phone'),
+    email:       g('f-email'),
+    dob:         g('f-dob'),
+    pan:         g('f-pan')?.toUpperCase(),
+    amount,
+    tenure,
+    purpose:     g('f-purpose'),
+    employment:  g('f-emptype'),
+    income:      g('f-income'),
+    employer:    g('f-employer'),
+    experience:  g('f-experience'),
+    creditScore: g('f-credit'),
+    emi,
+  };
+
+  try {
+    const res  = await fetch(BACKEND_URL + '/api/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = await res.json();
+    // If backend returned an error (e.g. 400 validation), fall back to local scoring
+    if (!res.ok) throw new Error(data.error || 'Backend validation error');
+    document.getElementById('step-indicator').style.display = 'none';
+    renderConfirmation(data);
+    goTo('screen-confirm');
+  } catch (err) {
+    // Offline / validation fallback — score locally
+    console.warn('Backend unavailable or errored, using local scoring:', err.message);
+    const fallback = localScore(payload);
+    const ref = 'SBK' + Date.now().toString(36).toUpperCase();
+    document.getElementById('step-indicator').style.display = 'none';
+    renderConfirmation({ ...fallback, refNumber: ref });
+    goTo('screen-confirm');
+  } finally {
+    document.getElementById('loading-overlay').classList.remove('show');
+    btn.disabled = false;
+  }
+}
+
+// Local fallback scoring — always produces a valid result even with empty fields
+function localScore(app) {
+  let score = 0;
+
+  // Normalize dash variants for option matching
+  const normKey = s => (s || '').replace(/[–—]/g, '-').trim();
+
+  const creditPts = {
+    '750+ (Excellent)':35, '700-749 (Good)':25, '650-699 (Fair)':14,
+    'Below 650 (Poor)':5, "Don't know":12,
+  };
+  score += creditPts[normKey(app.creditScore)] ?? 12;
+
+  const income = parseInt(app.income) || 0;
+  const emi    = parseFloat(app.emi)  || 0;
+  const ratio  = income > 0 ? emi / income : 0.4;   // neutral default
+  score += ratio < 0.25 ? 30 : ratio < 0.35 ? 22 : ratio < 0.45 ? 12 : ratio < 0.55 ? 5 : 0;
+
+  const empPts = { 'Salaried':20,'Business Owner':17,'Self-Employed':14,'Freelancer':10,'Retired':8 };
+  score += empPts[normKey(app.employment)] ?? 10;
+
+  const expPts = { '10+ years':15,'5-10 years':12,'2-5 years':9,'1-2 years':6,'Less than 1 year':3 };
+  score += expPts[normKey(app.experience)] ?? 8;
+
+  const base = ({ 'Personal Loan':10.5,'Home Loan':8.4,'Car Loan':9.0,
+                  'Business Loan':11.0,'Education Loan':7.5,'Gold Loan':9.5 }[app.loanType] ?? 10.5);
+
+  let decision, interestRate, approvedAmount, message;
+  const amt = parseFloat(app.amount) || 500000;
+  const n   = parseInt(app.tenure)   || 60;
+
+  if (score >= 75) {
+    decision='APPROVED'; interestRate=+(base-0.5).toFixed(2); approvedAmount=amt;
+    message='Congratulations! Your application has been approved at our best available rate.';
+  } else if (score >= 60) {
+    decision='APPROVED'; interestRate=base; approvedAmount=amt;
+    message='Your application is approved at our standard rate.';
+  } else if (score >= 45) {
+    decision='CONDITIONAL'; interestRate=+(base+2).toFixed(2); approvedAmount=amt*0.75;
+    message='Your application is conditionally approved, pending document verification.';
+  } else {
+    decision='REJECTED'; interestRate=null; approvedAmount=null;
+    message='We are unable to process your application based on the provided information.';
+  }
+
+  let finalEmi = null;
+  if (interestRate && approvedAmount) {
+    const r = interestRate / 100 / 12;
+    finalEmi = Math.round(approvedAmount * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1));
+  }
+  return { decision, score, message, interestRate, approvedAmount, finalEmi, flags: [] };
+}
+
+function renderConfirmation(data) {
+  const isApproved    = data.decision === 'APPROVED';
+  const isConditional = data.decision === 'CONDITIONAL';
+  const icon  = isApproved ? '🎉' : isConditional ? '⏳' : '❌';
+  const title = isApproved ? 'Loan Approved!' : isConditional ? 'Conditional Approval' : 'Application Declined';
+  const pct   = Math.min(data.score, 100);
+  const fillClass = pct >= 65 ? 'green' : pct >= 45 ? 'orange' : 'red';
+  const badgeClass = isApproved ? 'approved' : isConditional ? 'conditional' : 'rejected';
+
+  const termsHTML = (isApproved || isConditional) ? `
+    <div class="loan-terms">
+      <div class="term-box"><div class="tl">Interest Rate</div><div class="tv">${data.interestRate}% p.a.</div></div>
+      <div class="term-box"><div class="tl">Approved Amount</div><div class="tv">₹${Math.round(data.approvedAmount).toLocaleString('en-IN')}</div></div>
+      <div class="term-box"><div class="tl">Monthly EMI</div><div class="tv">₹${(data.finalEmi||0).toLocaleString('en-IN')}</div></div>
+    </div>` : '';
+
+  const flagsHTML = (data.flags?.length) ? `
+    <div class="flags-list">
+      <p>Factors noted:</p>
+      <ul>${data.flags.map(f => `<li>${f}</li>`).join('')}</ul>
+    </div>` : '';
+
+  document.getElementById('confirm-content').innerHTML = `
+    <div class="confirm-icon">${icon}</div>
+    <h2>${title}</h2>
+    <div class="decision-badge ${badgeClass}">${data.decision}</div>
+    <p class="sub" style="margin-top:14px;">${data.message}</p>
+    <div class="score-bar-wrap">
+      <div class="score-label"><span>Application Score</span><span>${data.score} / 100</span></div>
+      <div class="score-bar"><div class="score-fill ${fillClass}" id="score-fill" style="width:0%"></div></div>
+    </div>
+    ${termsHTML}
+    ${flagsHTML}
+    ${isConditional ? `<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">Please visit your nearest branch with Aadhaar, PAN, 3-month salary slips &amp; bank statements.</p>` : ''}
+    <div class="ref-num">${data.refNumber}</div>
+    <br/><br/>
+    <button class="btn-secondary" onclick="resetKiosk()">🔄 New Application</button>
+  `;
+  // Animate score bar
+  setTimeout(() => {
+    const el = document.getElementById('score-fill');
+    if (el) el.style.width = pct + '%';
+  }, 400);
+}
+
+function resetKiosk() {
+  selectedLoan = '';
+  ['f-fname','f-lname','f-phone','f-email','f-dob','f-pan','f-income','f-employer'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['f-purpose','f-emptype','f-experience','f-credit'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+    // Deselect all buttons in this group
+    document.querySelector(`.btn-group[data-field="${id}"]`)
+      ?.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+    // Hide any "Other" text input
+    const other = document.getElementById(id + '-other');
+    if (other) { other.value = ''; other.classList.remove('show'); }
+  });
+  document.getElementById('f-amount').value = 500000;
+  document.getElementById('f-tenure').value = 60;
+  updateAmount(); updateTenure();
+  goTo('screen-welcome');
+}
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+function g(id) { return document.getElementById(id)?.value?.trim() || ''; }
+
+function fill(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = val;
+  el.classList.remove('voice-filled');
+  void el.offsetWidth;   // reflow
+  el.classList.add('voice-filled');
+}
+
+// ── Click a button-group option (click or voice) ──
+function selectOpt(btn) {
+  const group   = btn.closest('.btn-group');
+  const fieldId = group.dataset.field;
+  const isOther = btn.dataset.val === 'Other';
+
+  // Deselect siblings
+  group.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+
+  // Handle "Other" with text input
+  const otherEl = document.getElementById(fieldId + '-other');
+  if (otherEl) {
+    if (isOther) {
+      otherEl.classList.add('show');
+      otherEl.focus();
+      // Sync text to hidden input live
+      otherEl.oninput = () => {
+        document.getElementById(fieldId).value = otherEl.value.trim() || 'Other';
+      };
+      document.getElementById(fieldId).value = otherEl.value.trim() || 'Other';
+    } else {
+      otherEl.classList.remove('show');
+      document.getElementById(fieldId).value = btn.dataset.val;
+    }
+  } else {
+    document.getElementById(fieldId).value = btn.dataset.val;
+  }
+
+  // Visual pulse
+  btn.classList.add('voice-filled');
+  setTimeout(() => btn.classList.remove('voice-filled'), 700);
+}
+
+// ── Set a button-group (or legacy select) by value string ──
+function setSelect(id, val) {
+  if (!val) return;
+  const norm = s => s.toLowerCase().replace(/[–—]/g, '-').replace(/[()]/g,'').replace(/\s+/g,' ').trim();
+  const nVal = norm(val);
+
+  // Button-group path
+  const group = document.querySelector(`.btn-group[data-field="${id}"]`);
+  if (group) {
+    const btn = Array.from(group.querySelectorAll('.opt-btn')).find(b => {
+      const nB = norm(b.dataset.val);
+      return nB === nVal || nB.startsWith(nVal) || nVal.startsWith(nB) || nB.includes(nVal);
+    });
+    if (btn) selectOpt(btn);
+    return;
+  }
+
+  // Legacy <select> path (kept for safety)
+  const el = document.getElementById(id);
+  if (!el) return;
+  const opt = Array.from(el.options).find(o => norm(o.value) === nVal || norm(o.text) === nVal || norm(o.text).includes(nVal));
+  if (opt) { el.value = opt.value; el.classList.remove('voice-filled'); void el.offsetWidth; el.classList.add('voice-filled'); }
+}
+
+function setSlider(id, val) {
+  const el = document.getElementById(id);
+  if (el) { el.value = val; el.classList.remove('voice-filled'); void el.offsetWidth; el.classList.add('voice-filled'); }
+}
+
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s; }
+
+function updateAmount() {
+  const v = parseInt(document.getElementById('f-amount').value);
+  document.getElementById('amount-val').textContent = '₹' + v.toLocaleString('en-IN');
+  calcEMI();
+}
+function updateTenure() {
+  const v = parseInt(document.getElementById('f-tenure').value);
+  const yr = v >= 12 ? ` (${(v/12).toFixed(1).replace(/\.0$/,'')} yrs)` : '';
+  document.getElementById('tenure-val').textContent = v + ' months' + yr;
+  calcEMI();
+}
+function calcEMI() {
+  const P = parseInt(document.getElementById('f-amount').value);
+  const n = parseInt(document.getElementById('f-tenure').value);
+  const r = 0.105 / 12;
+  const emi = Math.round(P * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1));
+  document.getElementById('emi-val').textContent = '₹' + emi.toLocaleString('en-IN') + '/mo';
+}
+updateAmount(); updateTenure();
+
+function toast(msg, dur = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ═══════════════════════════════════════════════════════
+//  VOICE RECOGNITION  — always-on, auto-restart
+// ═══════════════════════════════════════════════════════
+let wantListening = false;   // true when user has activated the mic
+let restartTimer  = null;
+
+function setupRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+
+  function makeRec() {
+    const r = new SR();
+    r.lang            = 'en-IN';
+    r.continuous      = true;   // stay open between utterances
+    r.interimResults  = true;
+
+    r.onresult = (e) => {
+      // Collect only the latest segment
+      let interim = '', final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t;
+        else interim += t;
+      }
+      const shown = (final || interim).toLowerCase().trim();
+      if (shown) {
+        document.getElementById('voice-text').textContent = shown;
+        document.getElementById('voice-bar').classList.add('show');
+      }
+      if (final.trim()) handleVoiceCommand(final.toLowerCase().trim());
+    };
+
+    // Auto-restart: browser ends continuous sessions after ~60 s silence
+    r.onend = () => {
+      if (wantListening) {
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+          try { recognition = makeRec(); recognition.start(); } catch(_) {}
+        }, 300);
+      } else {
+        setMicOff();
+      }
+    };
+
+    r.onerror = (e) => {
+      // "no-speech" is normal during silence — just restart quietly
+      if (e.error === 'no-speech') return;
+      // "not-allowed" means permission denied
+      if (e.error === 'not-allowed') {
+        wantListening = false;
+        setMicOff();
+        toast('⚠️ Microphone access denied. Please allow it in browser settings.');
+        return;
+      }
+      // Other errors — restart
+      if (wantListening) {
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+          try { recognition = makeRec(); recognition.start(); } catch(_) {}
+        }, 500);
+      }
+    };
+
+    return r;
+  }
+
+  recognition = makeRec();
+}
+
+function setMicOff() {
+  isListening = false;
+  document.getElementById('mic-btn').classList.remove('listening');
+  document.getElementById('mic-btn').textContent = '🎤';
+  document.getElementById('mic-btn').title = 'Click to start listening';
+  setTimeout(() => document.getElementById('voice-bar').classList.remove('show'), 2500);
+}
+
+function toggleMic() {
+  if (!recognition) { toast('Voice not supported — please use Chrome or Edge'); return; }
+
+  if (wantListening) {
+    // User wants to stop
+    wantListening = false;
+    try { recognition.stop(); } catch(_) {}
+    setMicOff();
+    toast('🎤 Mic paused');
+  } else {
+    // User wants to start — browser asks permission ONCE, then remembers
+    wantListening = true;
+    isListening   = true;
+    document.getElementById('mic-btn').classList.add('listening');
+    document.getElementById('mic-btn').textContent = '⏹';
+    document.getElementById('mic-btn').title = 'Click to stop listening';
+    document.getElementById('voice-bar').classList.add('show');
+    document.getElementById('voice-text').textContent = 'Always listening…';
+    document.getElementById('voice-filled').textContent = '';
+    try { recognition.start(); } catch(_) {
+      // Already started — that's fine
+    }
+    toast('🎤 Mic on — speak anytime!');
+  }
+}
+
+function handleVoiceCommand(text) {
+  const active = document.querySelector('.screen.active')?.id;
+
+  // ── Global navigation ──
+  if (/\b(next|continue|proceed)\b/.test(text)) {
+    const nextMap = {
+      'screen-type':       () => document.querySelector('.loan-card.selected') && goStep('screen-info',1),
+      'screen-info':       () => goStep('screen-amount',2),
+      'screen-amount':     () => goStep('screen-employment',3),
+      'screen-employment': () => goReview(),
+      'screen-review':     () => submitApp(),
+    };
+    if (nextMap[active]) { nextMap[active](); showVoiceFilled('➡ Next'); return; }
+  }
+  if (/\b(back|previous|go back)\b/.test(text)) {
+    const backMap = {
+      'screen-type':       () => goTo('screen-welcome'),
+      'screen-info':       () => goTo('screen-type'),
+      'screen-amount':     () => goStep('screen-info',1),
+      'screen-employment': () => goStep('screen-amount',2),
+      'screen-review':     () => goStep('screen-employment',3),
+    };
+    if (backMap[active]) { backMap[active](); showVoiceFilled('⬅ Back'); return; }
+  }
+  if (/\b(start|begin|apply)\b/.test(text) && active === 'screen-welcome') {
+    goTo('screen-type'); return;
+  }
+  if (/\b(assistant|help me|open chat)\b/.test(text)) { openChat(); return; }
+
+  // ── Loan type selection ──
+  const loanMap = {
+    'personal':  'Personal Loan', 'home': 'Home Loan', 'house': 'Home Loan',
+    'car':       'Car Loan',      'vehicle': 'Car Loan', 'auto': 'Car Loan',
+    'business':  'Business Loan', 'education': 'Education Loan', 'student': 'Education Loan',
+    'gold':      'Gold Loan',
+  };
+  for (const [kw, loan] of Object.entries(loanMap)) {
+    if (text.includes(kw)) {
+      if (active === 'screen-welcome') { goTo('screen-type'); setTimeout(() => selectLoan(loan), 400); }
+      else if (active === 'screen-type') selectLoan(loan);
+      return;
+    }
+  }
+
+  // ── Voice-fill current form fields ──
+  const filled = voiceFill(text, active);
+  if (filled.length > 0) {
+    showVoiceFilled('✓ Filled: ' + filled.join(', '));
+    return;
+  }
+
+  // ── Fallback ──
+  // On form screens: show a helpful hint instead of opening chat
+  const formScreens = ['screen-info','screen-amount','screen-employment','screen-review'];
+  if (formScreens.includes(active)) {
+    showVoiceFilled('❓ Not recognised — try the hint below ↑');
+    toast('💡 Try: "my name is …" or "income is …"');
+  } else {
+    // On welcome / type screens it's fine to open chat
+    openChat();
+    setTimeout(() => { document.getElementById('chat-input').value = text; sendChat(); }, 350);
+  }
+}
+
+function showVoiceFilled(msg) {
+  document.getElementById('voice-filled').textContent = msg;
+}
+
+// ═══════════════════════════════════════════════════════
+//  VOICE-FILL ENGINE  (comprehensive)
+// ═══════════════════════════════════════════════════════
+function voiceFill(text, screen) {
+  const filled = [];
+
+  // ─────────────────────────────────────────────────────
+  //  SCREEN: Personal Info
+  // ─────────────────────────────────────────────────────
+  if (screen === 'screen-info') {
+
+    // ── Full name: "my name is Aastha Kataria"
+    const fullNm = text.match(/(?:my\s+(?:full\s+)?name\s+is|i\s+am|name\s+is|i'm|call\s+me|i\s+go\s+by)\s+([a-z]+(?:\s+[a-z]+)?)/i);
+    if (fullNm) {
+      const parts = fullNm[1].trim().split(/\s+/);
+      fill('f-fname', cap(parts[0]));
+      if (parts[1]) fill('f-lname', cap(parts[1]));
+      filled.push('full name');
+    }
+
+    // ── First name only: "first name Aastha" / "my first name is Aastha"
+    if (!filled.includes('full name')) {
+      const fnm = text.match(/(?:first\s+name\s+(?:is\s+)?|fname\s+(?:is\s+)?)([a-z]+)/i);
+      if (fnm) { fill('f-fname', cap(fnm[1])); filled.push('first name'); }
+    }
+
+    // ── Last name only: "last name Kataria" / "surname Kataria"
+    const lnm = text.match(/(?:last\s+name\s+(?:is\s+)?|surname\s+(?:is\s+)?|family\s+name\s+(?:is\s+)?)([a-z]+)/i);
+    if (lnm) { fill('f-lname', cap(lnm[1])); filled.push('last name'); }
+
+    // ── Phone: any 10-digit sequence (strip spaces/dashes first)
+    const digitOnly = text.replace(/[\s\-]/g, '');
+    const phM = digitOnly.match(/(?:^|[^0-9])(\d{10})(?:[^0-9]|$)/);
+    if (phM) { fill('f-phone', phM[1]); filled.push('phone'); }
+
+    // ── Email: handles "at the rate", "dot", spoken formats
+    const email = extractEmail(text);
+    if (email) { fill('f-email', email); filled.push('email'); }
+
+    // ── Date of birth: all spoken formats
+    const dob = extractDOB(text);
+    if (dob) {
+      fill('f-dob', dob);
+      // Show human-readable feedback: "1990-03-15" → "15 Mar 1990"
+      const [y,mo,d] = dob.split('-');
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      filled.push(`DOB: ${parseInt(d)} ${monthNames[parseInt(mo)-1]} ${y}`);
+    }
+
+    // ── PAN: ABCDE1234F — spoken with or without spaces
+    const panStr = text.toUpperCase().replace(/[\s\-]/g, '');
+    const panM   = panStr.match(/([A-Z]{5}\d{4}[A-Z])/);
+    if (panM) { fill('f-pan', panM[1]); filled.push('PAN'); }
+  }
+
+  // ─────────────────────────────────────────────────────
+  //  SCREEN: Loan Amount & Tenure
+  // ─────────────────────────────────────────────────────
+  if (screen === 'screen-amount') {
+
+    // ── Loan amount: digit, word, mixed
+    // e.g. "5 lakh", "ten lakh", "five lakh twenty thousand", "500000", "1.5 lakh"
+    let newAmt = null;
+
+    // Decimal lakh/crore: "1.5 lakh", "0.5 crore"
+    const decLakh  = text.match(/(\d+\.\d+)\s*(?:lakh|lac|lakhs)/i);
+    const decCrore = text.match(/(\d+\.\d+)\s*crore/i);
+    if (decCrore)  newAmt = Math.round(parseFloat(decCrore[1]) * 1e7);
+    else if (decLakh) newAmt = Math.round(parseFloat(decLakh[1]) * 1e5);
+
+    // Word + lakh/crore: "five lakh", "ten lakh twenty thousand"
+    if (newAmt === null) {
+      const wordAmt = wordToNum(text);
+      if (wordAmt && wordAmt >= 50000) newAmt = wordAmt;
+    }
+
+    // Plain large number: "500000"
+    if (newAmt === null) {
+      const plainM = text.match(/\b(\d{5,8})\b/);
+      if (plainM) newAmt = parseInt(plainM[1]);
+    }
+
+    if (newAmt !== null) {
+      newAmt = Math.round(Math.min(Math.max(newAmt, 50000), 5000000) / 50000) * 50000;
+      setSlider('f-amount', newAmt);
+      updateAmount();
+      filled.push('loan amount');
+    }
+
+    // ── Tenure: years or months (words or digits)
+    // e.g. "3 years", "three years", "36 months", "sixty months"
+    const tenureWordM = text.match(/(\w+)\s+year/i);
+    const tenureMthM  = text.match(/(\w+)\s+month/i);
+
+    if (tenureWordM) {
+      let yrs = parseInt(tenureWordM[1]) || wordToNum(tenureWordM[1]);
+      if (yrs) {
+        const snapped = Math.round(Math.min(Math.max(yrs * 12, 6), 360) / 6) * 6;
+        setSlider('f-tenure', snapped); updateTenure(); filled.push('tenure');
+      }
+    } else if (tenureMthM) {
+      let mths = parseInt(tenureMthM[1]) || wordToNum(tenureMthM[1]);
+      if (mths) {
+        const snapped = Math.round(Math.min(Math.max(mths, 6), 360) / 6) * 6;
+        setSlider('f-tenure', snapped); updateTenure(); filled.push('tenure');
+      }
+    }
+
+    // ── Purpose
+    const purposeMap = [
+      [/renovat|home\s+(?:repair|improvement)/i,    'Home Renovation'],
+      [/medical|hospital|health|surgery/i,           'Medical Emergency'],
+      [/educat|study|college|school|tuition/i,       'Education'],
+      [/travel|trip|vacation|holiday|tour/i,         'Travel'],
+      [/debt|consolidat|clear\s+loan|repay/i,        'Debt Consolidation'],
+      [/business|expand|startup|invest/i,            'Business Expansion'],
+      [/other|miscellaneous|general/i,               'Other'],
+    ];
+    for (const [rx, val] of purposeMap) {
+      if (rx.test(text)) { setSelect('f-purpose', val); filled.push('purpose'); break; }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────
+  //  SCREEN: Employment & Income
+  // ─────────────────────────────────────────────────────
+  if (screen === 'screen-employment') {
+
+    // ── Employment type
+    if (/\bsalaried\b|employed\s+by|work(?:ing)?\s+for\s+a\s+company|government\s+employee|corporate/i.test(text)) {
+      setSelect('f-emptype', 'Salaried'); filled.push('employment type');
+    } else if (/business\s+owner|own(?:ing)?\s+(?:a\s+)?business|run(?:ning)?\s+(?:a\s+)?business|proprietor/i.test(text)) {
+      setSelect('f-emptype', 'Business Owner'); filled.push('employment type');
+    } else if (/self.employ|working\s+for\s+myself|own\s+account/i.test(text)) {
+      setSelect('f-emptype', 'Self-Employed'); filled.push('employment type');
+    } else if (/freelanc|independent\s+contractor|consultant/i.test(text)) {
+      setSelect('f-emptype', 'Freelancer'); filled.push('employment type');
+    } else if (/retir/i.test(text)) {
+      setSelect('f-emptype', 'Retired'); filled.push('employment type');
+    }
+
+    // ── Monthly income — digits, words, lakh form
+    // e.g. "income is 75000", "salary 75k", "I earn seventy five thousand", "income 1 lakh"
+    let incVal = null;
+
+    // Digit with optional commas: "75,000" / "75000"
+    const incNumM = text.match(/(?:income|salary|earn(?:ing|s)?|make|paid|get(?:ting)?|draw(?:ing)?)\s*(?:is\s+)?(?:rs\.?\s*|rupees?\s*)?(\d[\d,]+)/i)
+                 || text.match(/(?:rs\.?\s*|rupees?\s*)(\d[\d,]+)\s*(?:per\s*month|monthly|\/\s*month|a\s*month|pm\b)/i);
+    if (incNumM) incVal = parseInt(incNumM[1].replace(/,/g,''));
+
+    // "75k" shorthand
+    if (!incVal) {
+      const kM = text.match(/(\d+)\s*k\b/i);
+      if (kM) incVal = parseInt(kM[1]) * 1000;
+    }
+
+    // Word numbers: "seventy five thousand" / "one lakh"
+    if (!incVal) {
+      const wNum = wordToNum(text);
+      if (wNum && wNum >= 5000 && wNum <= 10000000) incVal = wNum;
+    }
+
+    if (incVal) { fill('f-income', incVal.toString()); filled.push('income'); }
+
+    // ── Employer / company name
+    // "I work at Infosys" / "company is TCS" / "employed at Wipro" / "I work at Infosys for 3 years"
+    const empCo = text.match(
+      /(?:work(?:ing)?\s*(?:at|for|in|with)|company(?:\s+name)?\s+(?:is\s+)?|employer\s+(?:is\s+)?|employed\s+(?:at|by|in|with)|joining)\s+([A-Za-z][A-Za-z0-9\s&.',-]{1,40}?)(?:\s+(?:for|since|from|as)\b|\s*[.,]|$)/i
+    );
+    if (empCo) {
+      const name = empCo[1].trim().split(/\s+/).map(cap).join(' ');
+      fill('f-employer', name); filled.push('employer');
+    } else {
+      // Simpler fallback: "at <CompanyName>" when nothing else matched
+      const atM = text.match(/\bat\s+([A-Za-z][A-Za-z0-9\s&.',-]{1,30}?)(?:\s*[.,]|$)/i);
+      if (atM && atM[1].split(/\s+/).length <= 4) {
+        const name = atM[1].trim().split(/\s+/).map(cap).join(' ');
+        fill('f-employer', name); filled.push('employer');
+      }
+    }
+
+    // ── Work experience
+    // "5 years experience", "less than a year", "ten plus years"
+    const expRaw = text.replace(/\bexperience\b/gi,'').trim();
+    if      (/less\s*than\s*(?:a\s*|1\s*)?year|under\s*(?:a\s*|1\s*)?year|fresher|new\s*joiner/i.test(expRaw))
+                                                                              { setSelect('f-experience','Less than 1 year'); filled.push('experience'); }
+    else if (/\b(?:1|one)\s+(?:to|-)\s*(?:2|two)\b.*year|\b1\s*year/i.test(expRaw))
+                                                                              { setSelect('f-experience','1–2 years');        filled.push('experience'); }
+    else if (/\b(?:[2-4]|two|three|four)\s+(?:to|-)?(?:\s*\d+\s*)?year/i.test(expRaw))
+                                                                              { setSelect('f-experience','2–5 years');        filled.push('experience'); }
+    else if (/\b(?:[5-9]|five|six|seven|eight|nine)\s+(?:to|-)?(?:\s*\d+\s*)?year/i.test(expRaw))
+                                                                              { setSelect('f-experience','5–10 years');       filled.push('experience'); }
+    else if (/\b(?:10|ten)\+?\s*year|more\s*than\s*(?:10|ten)\s*year|decade/i.test(expRaw))
+                                                                              { setSelect('f-experience','10+ years');        filled.push('experience'); }
+
+    // ── Credit score — numeric (3-digit) or keyword
+    const csM = text.match(/(?:credit\s*score|cibil(?:\s*score)?|score)\s*(?:is\s*)?(\d{3})/i);
+    if (csM) {
+      const s = parseInt(csM[1]);
+      const val = s >= 750 ? '750+ (Excellent)' : s >= 700 ? '700–749 (Good)' : s >= 650 ? '650–699 (Fair)' : 'Below 650 (Poor)';
+      setSelect('f-credit', val); filled.push('credit score');
+    } else if (/excellent|750\s*\+|above\s*750|great\s+score/i.test(text))   { setSelect('f-credit','750+ (Excellent)'); filled.push('credit score'); }
+      else if (/\bgood\b|around\s*7[0-4]\d|seven\s*hundred/i.test(text))     { setSelect('f-credit','700–749 (Good)');   filled.push('credit score'); }
+      else if (/fair|average|okay|ok|6[5-9]\d/i.test(text))                  { setSelect('f-credit','650–699 (Fair)');   filled.push('credit score'); }
+      else if (/poor|bad|low\s+score|below\s*650/i.test(text))               { setSelect('f-credit','Below 650 (Poor)'); filled.push('credit score'); }
+      else if (/don'?t\s+know|not\s+sure|no\s+idea|unknown/i.test(text))     { setSelect('f-credit',"Don't know");       filled.push('credit score'); }
+  }
+
+  return filled;
+}
+
+setupRecognition();
+
+// ═══════════════════════════════════════════════════════
+//  AI CHAT  (Groq)
+// ═══════════════════════════════════════════════════════
+function openChat()  { document.getElementById('chat-panel').classList.add('open'); document.getElementById('chat-input').focus(); }
+function closeChat() { document.getElementById('chat-panel').classList.remove('open'); }
+
+const chatHistory = [{ role: 'system', content: SYSTEM_PROMPT }];
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  addMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+  const typing = addMsg('bot', '…', true);
+
+  try {
+    const res  = await fetch(GROQ_URL, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ model: GROQ_MODEL, messages: chatHistory, max_tokens: 300 }),
+    });
+    const data  = await res.json();
+    const reply = data.choices?.[0]?.message?.content || 'Sorry, I could not respond. Please try again.';
+    chatHistory.push({ role: 'assistant', content: reply });
+    typing.textContent = reply;
+    typing.classList.remove('typing');
+  } catch {
+    typing.textContent = '⚠️ Connection error. Please check your network.';
+    typing.classList.remove('typing');
+  }
+}
+
+function addMsg(role, text, typing = false) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role + (typing ? ' typing' : '');
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+</script>
+</body>
+</html>
