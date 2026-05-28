@@ -250,6 +250,139 @@ app.get('/api/dashboard', (req, res) => {
   return res.json({ total, byDecision, byType, totalApprovedAmount: totalAmount });
 });
 
+// ── NEW KIOSK INTEGRATION ENDPOINTS ──────────────────────────────────────────
+
+/**
+ * POST /api/nlu/parse
+ * Body: { transcript, contextFlow }
+ */
+app.post('/api/nlu/parse', (req, res) => {
+  const { transcript, contextFlow } = req.body;
+  if (!transcript) {
+    return res.status(400).json({ error: 'Missing transcript' });
+  }
+
+  const text = transcript.toLowerCase().trim();
+  let intent = 'unknown';
+  let confidence = 0.5;
+  let extractedSlots = {};
+  let suggestedAction = '';
+
+  // 1. Home Navigation & Voice Trigger Triggers
+  if (text.includes('block') || text.includes('card') || text.includes('कार्ड ब्लॉक') || text.includes('डेबिट')) {
+    intent = 'card.block';
+    confidence = 0.95;
+    suggestedAction = 'prompt_card_selection';
+    if (text.includes('credit')) extractedSlots.cardType = 'credit';
+    else if (text.includes('debit')) extractedSlots.cardType = 'debit';
+  } else if (text.includes('send') || text.includes('money') || text.includes('transfer') || text.includes('pay') || text.includes('पैसे') || text.includes('भेजें')) {
+    intent = 'payment.send_money';
+    confidence = 0.95;
+    suggestedAction = 'prompt_amount_recipient';
+    
+    // Attempt slot extraction for send money (e.g. "Send 5000 to Raj")
+    const amountMatch = text.match(/(?:send|transfer|pay|₹|\bRs\.?\s*)(\d[\d,]*)/i) || text.match(/(\d+)\s*(?:thousand|k)/i);
+    if (amountMatch) {
+      extractedSlots.amount = amountMatch[1].replace(/,/g, '');
+    }
+    const payeeMatch = text.match(/(?:to)\s+([a-z]+)/i);
+    if (payeeMatch) {
+      extractedSlots.payee = payeeMatch[1];
+    }
+  } else if (text.includes('loan') || text.includes('certificate') || text.includes('statement') || text.includes('ऋण')) {
+    intent = 'loan.certificate';
+    confidence = 0.95;
+    suggestedAction = 'prompt_loan_selection';
+  } else if (text.includes('invest') || text.includes('sip') || text.includes('mutual') || text.includes('fund') || text.includes('निवेश')) {
+    intent = 'invest.mutual_fund';
+    confidence = 0.95;
+    suggestedAction = 'prompt_sip_amount';
+  } else if (text.includes('home') || text.includes('back') || text.includes('exit') || text.includes('cancel') || text.includes('मुख्य') || text.includes('वापस')) {
+    intent = 'home';
+    confidence = 0.98;
+    suggestedAction = 'navigate_home';
+  }
+
+  return res.json({ intent, confidence, extractedSlots, suggestedAction });
+});
+
+/**
+ * POST /api/card/block
+ */
+app.post('/api/card/block', (req, res) => {
+  const { cardId, reason } = req.body;
+  const refId = 'BLK-' + Math.floor(100000 + Math.random() * 900000) + '-UB';
+  return res.json({ success: true, refId });
+});
+
+/**
+ * POST /api/payment/send
+ */
+app.post('/api/payment/send', (req, res) => {
+  const { amount, payeeId, method } = req.body;
+  const txnId = 'TXN-' + Math.floor(100000 + Math.random() * 900000);
+  return res.json({ success: true, txnId });
+});
+
+/**
+ * POST /api/otp/send
+ */
+app.post('/api/otp/send', (req, res) => {
+  const { mobileNumber, context } = req.body;
+  const refId = 'OTP-' + Date.now();
+  console.log(`[OTP] Generated verification OTP 1234 for mobile ${mobileNumber} (context: ${context})`);
+  return res.json({ success: true, refId });
+});
+
+/**
+ * POST /api/otp/verify
+ */
+app.post('/api/otp/verify', (req, res) => {
+  const { otp, referenceId } = req.body;
+  const valid = otp === '1234' || otp === '4092';
+  return res.json({ valid });
+});
+
+/**
+ * POST /api/loan/certificate
+ */
+app.post('/api/loan/certificate', (req, res) => {
+  const { loanId, year } = req.body;
+  return res.json({ documentUrl: `https://umitra.bank/docs/${loanId || '8892'}_${year || '2023-24'}.pdf` });
+});
+
+/**
+ * POST /api/chat
+ * Body: { message, contextFlow }
+ */
+app.post('/api/chat', (req, res) => {
+  const { message, contextFlow } = req.body;
+  if (!message) return res.status(400).json({ error: 'Missing message' });
+
+  const text = message.toLowerCase().trim();
+  let reply = "";
+
+  if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
+    reply = "Union Bank Personal Loans start at 10.5% interest rate with flexible tenures up to 60 months. You can apply directly through our kiosk.";
+  } else if (text.includes('home loan') || text.includes('गृह ऋण') || text.includes('home interest')) {
+    reply = "Our Home Loan interest rates start at a highly competitive 8.4% per annum. You can download your interest certificate here in the Loan Certificates flow.";
+  } else if (text.includes('limit') || text.includes('सीमा')) {
+    reply = "For security, daily kiosk card transactions are limited to ₹2,00,000. For Send Money transfers, your daily transfer limit is ₹1,50,000.";
+  } else if (text.includes('document') || text.includes('दस्तावेज') || text.includes('kyc')) {
+    reply = "For most services on U-MITRA, you only need to authorize via registered mobile OTP or fingerprint. For full loan applications, you will need a PAN card and salary slips.";
+  } else if (text.includes('card') || text.includes('block') || text.includes('कार्ड')) {
+    reply = "If you lost your card, say 'block card' or click Card Services. We will block it instantly and dispatch a new card to your registered address in 3 to 5 days.";
+  } else if (text.includes('sip') || text.includes('mutual') || text.includes('invest') || text.includes('निवेश')) {
+    reply = "You can start a Mutual Fund SIP with as little as ₹1,000. Choose UBI Balanced Advantage or UBI Hybrid Equity under our Investments tab to start immediately!";
+  } else if (text.includes('help') || text.includes('hello') || text.includes('hi') || text.includes('सहायता')) {
+    reply = "Hello! I am U-MITRA, your Union Bank voice assistant. I can block cards, transfer funds, set up SIP mutual funds, or print loan statements. Just say what you need!";
+  } else {
+    reply = `I understand you have a question about our services. To assist you better, you can block your debit card, send money instantly, start a mutual fund SIP, or download loan interest certificates. What would you like to do?`;
+  }
+
+  return res.json({ reply });
+});
+
 // ── START ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n✅  SecureBank backend running → http://localhost:${PORT}`);
