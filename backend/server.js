@@ -269,7 +269,13 @@ app.post('/api/nlu/parse', (req, res) => {
   let suggestedAction = '';
 
   // 1. Home Navigation & Voice Trigger Triggers
-  if (text.includes('block') || text.includes('card') || text.includes('कार्ड ब्लॉक') || text.includes('डेबिट')) {
+  if (text.includes('reset') || text.includes('pin') || text.includes('पिन') || text.includes('रीसेट') || text.includes('change')) {
+    intent = 'card.reset_pin';
+    confidence = 0.95;
+    suggestedAction = 'prompt_pin_reset';
+    if (text.includes('credit')) extractedSlots.cardType = 'credit';
+    else if (text.includes('debit')) extractedSlots.cardType = 'debit';
+  } else if (text.includes('block') || text.includes('card') || text.includes('कार्ड ब्लॉक') || text.includes('डेबिट')) {
     intent = 'card.block';
     confidence = 0.95;
     suggestedAction = 'prompt_card_selection';
@@ -293,10 +299,22 @@ app.post('/api/nlu/parse', (req, res) => {
     intent = 'loan.certificate';
     confidence = 0.95;
     suggestedAction = 'prompt_loan_selection';
-  } else if (text.includes('invest') || text.includes('sip') || text.includes('mutual') || text.includes('fund') || text.includes('निवेश')) {
+  } else if (text.includes('invest') || text.includes('sip') || text.includes('mutual') || text.includes('fund') || text.includes('निवेश') || text.includes('lumpsum') || text.includes('lumsum') || text.includes('एकमुश्त')) {
     intent = 'invest.mutual_fund';
-    confidence = 0.95;
-    suggestedAction = 'prompt_sip_amount';
+    confidence = 0.98;
+    suggestedAction = text.includes('5000') ? 'prompt_lumpsum_5000' : 'prompt_sip_amount';
+    if (text.includes('lumpsum') || text.includes('lumsum') || text.includes('एकमुश्त')) {
+      extractedSlots.investType = 'lumpsum';
+    } else {
+      extractedSlots.investType = 'sip';
+    }
+    if (text.includes('50000')) {
+      extractedSlots.amount = '50000';
+    } else if (text.includes('5000')) {
+      extractedSlots.amount = '5000';
+    } else if (text.includes('2000')) {
+      extractedSlots.amount = '2000';
+    }
   } else if (text.includes('home') || text.includes('back') || text.includes('exit') || text.includes('cancel') || text.includes('मुख्य') || text.includes('वापस')) {
     intent = 'home';
     confidence = 0.98;
@@ -353,31 +371,52 @@ app.post('/api/loan/certificate', (req, res) => {
 
 /**
  * POST /api/chat
- * Body: { message, contextFlow }
+ * Body: { message, contextFlow, language }
  */
 app.post('/api/chat', (req, res) => {
-  const { message, contextFlow } = req.body;
+  const { message, contextFlow, language } = req.body;
   if (!message) return res.status(400).json({ error: 'Missing message' });
 
   const text = message.toLowerCase().trim();
+  const isHi = language === 'Hindi' || text.includes('सहायता') || text.includes('ऋण') || text.includes('कार्ड');
   let reply = "";
 
-  if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
-    reply = "Union Bank Personal Loans start at 10.5% interest rate with flexible tenures up to 60 months. You can apply directly through our kiosk.";
-  } else if (text.includes('home loan') || text.includes('गृह ऋण') || text.includes('home interest')) {
-    reply = "Our Home Loan interest rates start at a highly competitive 8.4% per annum. You can download your interest certificate here in the Loan Certificates flow.";
-  } else if (text.includes('limit') || text.includes('सीमा')) {
-    reply = "For security, daily kiosk card transactions are limited to ₹2,00,000. For Send Money transfers, your daily transfer limit is ₹1,50,000.";
-  } else if (text.includes('document') || text.includes('दस्तावेज') || text.includes('kyc')) {
-    reply = "For most services on U-MITRA, you only need to authorize via registered mobile OTP or fingerprint. For full loan applications, you will need a PAN card and salary slips.";
-  } else if (text.includes('card') || text.includes('block') || text.includes('कार्ड')) {
-    reply = "If you lost your card, say 'block card' or click Card Services. We will block it instantly and dispatch a new card to your registered address in 3 to 5 days.";
-  } else if (text.includes('sip') || text.includes('mutual') || text.includes('invest') || text.includes('निवेश')) {
-    reply = "You can start a Mutual Fund SIP with as little as ₹1,000. Choose UBI Balanced Advantage or UBI Hybrid Equity under our Investments tab to start immediately!";
-  } else if (text.includes('help') || text.includes('hello') || text.includes('hi') || text.includes('सहायता')) {
-    reply = "Hello! I am U-MITRA, your Union Bank voice assistant. I can block cards, transfer funds, set up SIP mutual funds, or print loan statements. Just say what you need!";
+  if (isHi) {
+    if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
+      reply = "यूनियन बैंक पर्सनल लोन लचीली अवधि के साथ 10.5% ब्याज दर से शुरू होते हैं। आप सीधे हमारे कियोस्क के माध्यम से आवेदन कर सकते हैं।";
+    } else if (text.includes('home loan') || text.includes('गृह ऋण') || text.includes('home interest')) {
+      reply = "हमारे होम लोन की ब्याज दरें 8.4% प्रति वर्ष से शुरू होती हैं। आप यहाँ ऋण प्रमाण पत्र फ़्लो में अपना ब्याज प्रमाणपत्र डाउनलोड कर सकते हैं।";
+    } else if (text.includes('limit') || text.includes('सीमा')) {
+      reply = "सुरक्षा के लिए, दैनिक कियोस्क कार्ड लेनदेन की सीमा ₹2,0,000 है। पैसे भेजें (मनी ट्रांसफर) के लिए, आपकी दैनिक सीमा ₹1,50,000 है।";
+    } else if (text.includes('document') || text.includes('दस्तावेज') || text.includes('kyc')) {
+      reply = "यू-मित्रा पर अधिकांश सेवाओं के लिए, आपको केवल पंजीकृत मोबाइल ओटीपी या फिंगरप्रिंट के माध्यम से प्रमाणित करना होगा। पूर्ण ऋण आवेदन के लिए, आपको पैन कार्ड और वेतन पर्ची की आवश्यकता होगी।";
+    } else if (text.includes('card') || text.includes('block') || text.includes('कार्ड')) {
+      reply = "यदि आपका कार्ड खो गया है, तो 'कार्ड ब्लॉक करें' कहें या कार्ड सेवाएं पर क्लिक करें। हम इसे तुरंत ब्लॉक कर देंगे और 3 से 5 दिनों में आपके पंजीकृत पते पर एक नया कार्ड भेज देंगे।";
+    } else if (text.includes('sip') || text.includes('mutual') || text.includes('invest') || text.includes('निवेश')) {
+      reply = "आप ₹1,000 जैसी छोटी राशि से म्यूचुअल फंड एसआईपी शुरू कर सकते हैं। तुरंत शुरू करने के लिए हमारे निवेश टैब के तहत UBI बैलेंस्ड एडवांटेज या UBI हाइब्रिड इक्विटी चुनें!";
+    } else if (text.includes('help') || text.includes('hello') || text.includes('hi') || text.includes('सहायता') || text.includes('नमस्ते')) {
+      reply = "नमस्ते! मैं यू-मित्रा हूँ, आपका यूनियन बैंक वॉयस असिस्टेंट। मैं कार्ड ब्लॉक कर सकता हूँ, फंड ट्रांसफर कर सकता हूँ, एसआईपी शुरू कर सकता हूँ या लोन सर्टिफिकेट प्रिंट कर सकता हूँ। बस कहें कि आपको क्या चाहिए!";
+    } else {
+      reply = "मैं समझता हूँ कि सेवाओं के बारे में आपका कोई प्रश्न है। आपकी बेहतर सहायता के लिए, आप अपना डेबिट कार्ड ब्लॉक कर सकते हैं, तुरंत पैसे भेज सकते हैं, म्यूचुअल फंड एसआईपी शुरू कर सकते हैं या ऋण ब्याज प्रमाण पत्र डाउनलोड कर सकते हैं। आप क्या करना चाहेंगे?";
+    }
   } else {
-    reply = `I understand you have a question about our services. To assist you better, you can block your debit card, send money instantly, start a mutual fund SIP, or download loan interest certificates. What would you like to do?`;
+    if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
+      reply = "Union Bank Personal Loans start at 10.5% interest rate with flexible tenures up to 60 months. You can apply directly through our kiosk.";
+    } else if (text.includes('home loan') || text.includes('गृह ऋण') || text.includes('home interest')) {
+      reply = "Our Home Loan interest rates start at a highly competitive 8.4% per annum. You can download your interest certificate here in the Loan Certificates flow.";
+    } else if (text.includes('limit') || text.includes('सीमा')) {
+      reply = "For security, daily kiosk card transactions are limited to ₹2,0,000. For Send Money transfers, your daily transfer limit is ₹1,50,000.";
+    } else if (text.includes('document') || text.includes('दस्तावेज') || text.includes('kyc')) {
+      reply = "For most services on U-MITRA, you only need to authorize via registered mobile OTP or fingerprint. For full loan applications, you will need a PAN card and salary slips.";
+    } else if (text.includes('card') || text.includes('block') || text.includes('कार्ड')) {
+      reply = "If you lost your card, say 'block card' or click Card Services. We will block it instantly and dispatch a new card to your registered address in 3 to 5 days.";
+    } else if (text.includes('sip') || text.includes('mutual') || text.includes('invest') || text.includes('निवेश')) {
+      reply = "You can start a Mutual Fund SIP with as little as ₹1,000. Choose UBI Balanced Advantage or UBI Hybrid Equity under our Investments tab to start immediately!";
+    } else if (text.includes('help') || text.includes('hello') || text.includes('hi') || text.includes('सहायता')) {
+      reply = "Hello! I am U-MITRA, your Union Bank voice assistant. I can block cards, transfer funds, set up SIP mutual funds, or print loan statements. Just say what you need!";
+    } else {
+      reply = `I understand you have a question about our services. To assist you better, you can block your debit card, send money instantly, start a mutual fund SIP, or download loan interest certificates. What would you like to do?`;
+    }
   }
 
   return res.json({ reply });
