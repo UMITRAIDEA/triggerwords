@@ -382,12 +382,18 @@ app.post('/api/chat', (req, res) => {
   let reply = "";
 
   if (isHi) {
-    if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
+    if (text.includes('what loan') || text.includes('कौन सा लोन') || text.includes('कौन सा ऋण') || text.includes('क्या लोन')) {
+      reply = "यूनियन बैंक गृह ऋण 8.4% और व्यक्तिगत ऋण 10.5% ब्याज दर से प्रदान करता है। यदि आप घर खरीद रहे हैं, तो गृह ऋण चुनें; अन्य व्यक्तिगत खर्चों के लिए व्यक्तिगत ऋण सर्वोत्तम है। आवेदन करने के लिए बस कहें, 'ऋण प्रमाण पत्र'!";
+    } else if (text.includes('what card') || text.includes('कौन सा कार्ड') || text.includes('क्या कार्ड')) {
+      reply = "प्रीमियम लाभों और लाउंज एक्सेस के लिए, हम वीज़ा सिग्नेचर कार्ड की सलाह देते हैं। दैनिक खरीदारी और उच्च एटीएम सीमा के लिए, हमारा वीज़ा प्लेटिनम डेबिट कार्ड सर्वोत्तम है। सेटिंग्स के लिए बस कहें 'कार्ड ब्लॉक करें'!";
+    } else if (text.includes('what investment') || text.includes('क्या निवेश') || text.includes('कहां निवेश') || text.includes('क्या इन्वेस्टमेंट')) {
+      reply = "आप केवल ₹1,000 से म्यूचुअल फंड एसआईपी शुरू कर सकते हैं। स्थिर विकास के लिए हम यूबीआई बैलेंस्ड एडवांटेज फंड और उच्च रिटर्न के लिए यूबीआई हाइब्रिड इक्विटी फंड की सिफारिश करते हैं। शुरू करने के लिए बस कहें, 'म्युचुअल फंड'!";
+    } else if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
       reply = "यूनियन बैंक पर्सनल लोन लचीली अवधि के साथ 10.5% ब्याज दर से शुरू होते हैं। आप सीधे हमारे कियोस्क के माध्यम से आवेदन कर सकते हैं।";
     } else if (text.includes('home loan') || text.includes('गृह ऋण') || text.includes('home interest')) {
       reply = "हमारे होम लोन की ब्याज दरें 8.4% प्रति वर्ष से शुरू होती हैं। आप यहाँ ऋण प्रमाण पत्र फ़्लो में अपना ब्याज प्रमाणपत्र डाउनलोड कर सकते हैं।";
     } else if (text.includes('limit') || text.includes('सीमा')) {
-      reply = "सुरक्षा के लिए, दैनिक कियोस्क कार्ड लेनदेन की सीमा ₹2,0,000 है। पैसे भेजें (मनी ट्रांसफर) के लिए, आपकी दैनिक सीमा ₹1,50,000 है।";
+      reply = "सुरक्षा के लिए, दैनिक कियोस्क कार्ड लेनदेन की सीमा ₹2,0,000 है। पैसे भेजें (मनी ट्रांसफर) के लिए, आपकी दैनिक सीमा ₹1,5,0,000 है।";
     } else if (text.includes('document') || text.includes('दस्तावेज') || text.includes('kyc')) {
       reply = "यू-मित्रा पर अधिकांश सेवाओं के लिए, आपको केवल पंजीकृत मोबाइल ओटीपी या फिंगरप्रिंट के माध्यम से प्रमाणित करना होगा। पूर्ण ऋण आवेदन के लिए, आपको पैन कार्ड और वेतन पर्ची की आवश्यकता होगी।";
     } else if (text.includes('card') || text.includes('block') || text.includes('कार्ड')) {
@@ -400,7 +406,13 @@ app.post('/api/chat', (req, res) => {
       reply = "मैं समझता हूँ कि सेवाओं के बारे में आपका कोई प्रश्न है। आपकी बेहतर सहायता के लिए, आप अपना डेबिट कार्ड ब्लॉक कर सकते हैं, तुरंत पैसे भेज सकते हैं, म्यूचुअल फंड एसआईपी शुरू कर सकते हैं या ऋण ब्याज प्रमाण पत्र डाउनलोड कर सकते हैं। आप क्या करना चाहेंगे?";
     }
   } else {
-    if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
+    if (text.includes('what loan') || text.includes('loan should i take')) {
+      reply = "Union Bank offers Home Loans starting at 8.4% per annum and Personal Loans at 10.5%. If you are buying a house, choose a Home Loan; for general personal needs, a Personal Loan is ideal. Say 'Home loan certificate' to open loans!";
+    } else if (text.includes('what card') || text.includes('card should i buy')) {
+      reply = "For premium benefits and lounge access, we recommend the Visa Signature Card. For everyday retail shopping and high ATM limits, our Visa Platinum Debit Card is highly recommended. Say 'Block card' to manage your cards!";
+    } else if (text.includes('what investment') || text.includes('investments can i make') || text.includes('investment should i make')) {
+      reply = "You can start a Mutual Fund SIP with as little as ₹1,000. We recommend the UBI Balanced Advantage Fund for steady, balanced growth, or the UBI Hybrid Equity Fund for higher returns. Say 'Start a SIP' to begin!";
+    } else if (text.includes('personal loan') || text.includes('व्यक्तिगत ऋण') || text.includes('personal interest')) {
       reply = "Union Bank Personal Loans start at 10.5% interest rate with flexible tenures up to 60 months. You can apply directly through our kiosk.";
     } else if (text.includes('home loan') || text.includes('गृह ऋण') || text.includes('home interest')) {
       reply = "Our Home Loan interest rates start at a highly competitive 8.4% per annum. You can download your interest certificate here in the Loan Certificates flow.";
